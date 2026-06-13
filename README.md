@@ -4,7 +4,7 @@
 
 The **Bulkhead After-Hours Lead Bot** is a specialized, automated intake system designed specifically for marine construction and shoreline protection companies. Deployed on your website, this chatbot acts as a 24/7 digital sales assistant. It activates automatically outside of your configured business hours to capture, qualify, and organize incoming leads so your team can hit the ground running the next morning.
 
-By asking targeted, industry-specific questions—from linear footage to site accessibility—the bot ensures that casual inquiries are separated from urgent, high-value projects before your sales team spends a minute on them.
+By asking targeted, industry-specific questions the bot ensures that casual inquiries are separated from urgent, high-value projects before your sales team spends a minute on them.
 
 ---
 
