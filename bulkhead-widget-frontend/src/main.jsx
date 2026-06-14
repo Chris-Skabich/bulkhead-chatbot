@@ -1,0 +1,1 @@
+// Entry point: Mounts React to a specific DOM ID
