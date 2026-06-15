@@ -32,9 +32,7 @@ A lightweight, embeddable React chatbot widget designed for marine construction 
 
 ```text
 bulkhead-widget-frontend/
-├── public/
-│   └── index.html
-│
+
 ├── src/
 │   ├── assets/
 │   │   └── Static assets
@@ -57,6 +55,7 @@ bulkhead-widget-frontend/
 │   ├── index.css
 │   └── main.jsx
 │
+├── index.html
 ├── package.json
 ├── vite.config.js
 └── README.md
