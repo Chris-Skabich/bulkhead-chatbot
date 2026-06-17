@@ -48,7 +48,7 @@ backend/
 │   └── schema.prisma          # Database schema definitions
 ├── dist/                      # Compiled production build
 └── package.json
-
+'''
 High-Level Architecture Flow
 
     API Layer: Handles client configuration changes and active chatbot messaging traffic.
