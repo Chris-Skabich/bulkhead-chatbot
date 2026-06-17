@@ -31,6 +31,9 @@ Our backend adheres to a modular, decoupled architecture to ensure that heavy ba
 Repository Layout
 Plaintext
 
+### Repository Layout
+
+```text
 backend/
 ├── src/
 │   ├── app.module.ts          # Main application bundle
