@@ -13,145 +13,140 @@ Features
 
     Secure Data Multi-Tenancy: Isolated storage of client configurations, agent prompts, and sensitive lead data.
 
-Tech Stack
+## Features
 
-The core architecture relies on a decoupled, production-grade JavaScript/TypeScript ecosystem:
+- **Asynchronous Processing:** Powered by FastAPI and Uvicorn for high-throughput capability.
+- **Strict Validation:** Uses Pydantic schemas to sanitize and gate incoming data.
+- **Background Jobs:** Integrated with Celery and Redis to handle heavy lifting (Excel generation, emails) without blocking the API.
+- **Docker Ready:** Complete multi-container setup (API, Celery, Redis, Postgres, and Mailpit for local email testing).
+- **Free Notifications:** Routes alerts via standard SMTP or Discord/Telegram Webhooks, bypassing paid services like SendGrid.
+- **Admin Management:** Dedicated routes to handle business logic like setting office hours or custom bot preferences.
 
-    Application Framework: Node.js with NestJS (preferred for its native dependency injection and modular architecture) or Express (configured with TypeScript).
+---
 
-    Database & ORM: PostgreSQL hosted via Supabase, utilizing Prisma ORM for type-safe schema management and migrations.
+## Tech Stack
 
-    Task Scheduling & Queues: Redis coupled with BullMQ to handle heavy background processing and cron schedules.
+| Technology | Purpose |
+|------------|---------|
+| Python 3.10+ | Core Programming Language |
+| FastAPI | Web Framework (Async API Endpoints) |
+| PostgreSQL | Relational Database for Leads & Client Configs |
+| Celery + Redis | Distributed Task Queue & Message Broker |
+| Mailpit | Local, offline SMTP testing server |
+| Pydantic | Data Serialization & Schema Validation |
+| Docker & Compose | Containerization & Local Orchestration |
 
-    Email Infrastructure: Resend (or SendGrid) API for transactional emails and daily Excel report delivery.
+---
 
-Project Structure & Architecture Overview
-
-Our backend adheres to a modular, decoupled architecture to ensure that heavy background operations (like report generation) never degrade the performance of real-time chat sessions.
-Repository Layout
-Plaintext
-
-### Repository Layout
+## Project Structure
 
 ```text
-backend/
-├── src/
-│   ├── app.module.ts          # Main application bundle
-│   ├── modules/
-│   │   ├── chat/              # Chat sessions, WebSocket/SSE gateways
-│   │   ├── config/            # Client & Agent configurations
-│   │   ├── leads/             # Lead generation and tracking data
-│   │   ├── queue/             # BullMQ processors and workers
-│   │   └── reporting/         # Excel generation and Email service hooks
-│   └── common/                # Guards, interceptors, and Prisma client
-├── prisma/
-│   └── schema.prisma          # Database schema definitions
-├── dist/                      # Compiled production build
-└── package.json
-'''
-High-Level Architecture Flow
+bulkhead-bot-backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                # FastAPI app initialization & CORS setup
+│   ├── api/                   # API Endpoints
+│   │   ├── __init__.py
+│   │   ├── routes_chat.py     # Handles incoming bot messages/payloads
+│   │   └── routes_admin.py    # Endpoints for companies to set hours/preferences
+│   ├── core/                  # Configuration
+│   │   ├── config.py          # Environment variables (DB URIs, SMTP hosts)
+│   │   └── security.py        # API key verification for widget requests
+│   ├── db/                    # Database setup
+│   │   ├── session.py         # Postgres connection logic
+│   │   └── models.py          # DB schemas (Client settings, Leads)
+│   ├── schemas/               # Pydantic models for validation
+│   │   ├── chat.py            # Validating incoming lead data
+│   │   └── client.py          # Validating admin settings
+│   ├── services/              # Business Logic
+│   │   ├── excel_gen.py       # Logic to convert DB leads to Excel rows
+│   │   ├── email_sender.py    # Native SMTP & Webhook notification logic
+│   │   └── nlp_parser.py      # Extracts linear ft from raw text (optional)
+│   └── tasks/                 # Background Jobs
+│       ├── __init__.py
+│       ├── celery_app.py      # Celery instance setup
+│       └── daily_reports.py   # Scheduled task: fetch leads -> make Excel -> email
+├── requirements.txt
+├── .env                       # Secrets (ignored in git)
+├── docker-compose.yml         # Spin-up API, Celery, Redis, Postgres, Mailpit
+└── README.md
+```
 
-    API Layer: Handles client configuration changes and active chatbot messaging traffic.
+## High-Level Architecture Flow
 
-    Cache/Queue Layer: Offloads heavy, time-sensitive, or scheduled tasks (e.g., generating daily reports) away from the HTTP thread.
+   Frontend Widget
+              │
+              ▼
+    [ main.py + security.py ] (CORS & Origin Guard)
+              │
+              ├──► /api/routes_admin.py ──► Admin Management
+              │
+              └──► /api/routes_chat.py
+                        │
+                        ▼ (Validates via schemas/chat.py)
+                  [ db/session.py ] ──► Write to Postgres
+                        │
+                        ▼ (Triggers Async Task)
+                  [ tasks/celery_app.py ]
+                        │
+                        └──► daily_reports.py ──► excel_gen.py ──► email_sender.py
 
-    Worker Layer: Consumes queue messages, queries PostgreSQL for lead data, compiles reports, and triggers the email API.
+### Local Development (Mailpit)
+The `docker-compose.yml` file includes a lightweight mail server called **Mailpit**. When the Celery worker sends a daily report, Mailpit catches it locally. You can view the rendered emails and attachments at `http://localhost:8025` without needing an internet connection or real email addresses.
 
-Component Responsibilities
-1. API Layer (Node.js / NestJS)
+### Production Routing
+The `email_sender.py` module supports two free production methods:
+1.  **Standard SMTP:** Connects to any standard email provider (e.g., Gmail using an App Password) via Python's native `smtplib`.
+2.  **Webhooks:** Pushes instant lead notifications to free platforms like Discord or Telegram, ideal for quick field-team alerts.
 
-    Session Management: Coordinates stateful or stateless chat sessions across multiple clients.
+Local Development (With Docker)
+-------------------------------
+The easiest way to spin up the entire backend stack (Database, Cache, API, Workers, and Mail Testing) is using Docker Compose.
 
-    Client Configurations: Exposes REST endpoints to update system prompts, agent personalities, and API keys.
+### 1\. Configure Environment Variables
+Create a `.env` file in the root directory:
+Code snippet
+```
+# Database Connections
+DATABASE_URL=postgresql://user:password@db:5432/bulkhead_db
+REDIS_URL=redis://redis:6379/0
 
-    Ingestion: Captures lead information mid-conversation and securely pushes it to the database.
+# Mailpit Local Testing Ports
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+```
 
-2. Persistence Layer (PostgreSQL & Prisma)
-
-    Relational Integrity: Maps complex relations between Clients, Agents, Chat Sessions, and captured Leads.
-
-    Data Security: Utilizes strict database constraints and row-level security (RLS) where applicable to prevent cross-tenant data leaks.
-
-3. Task Scheduling (Redis + BullMQ)
-
-    Asynchronous Offloading: Prevents API degradation by shifting report compilation to separate worker threads.
-
-    Cron Management: Triggers a daily repeatable job at a designated time (e.g., 0 0 * * *) to compile metrics.
-
-    Resiliency: Handles automatic retries with exponential backoff if the email service or database experiences transient downtime.
-
-4. Reporting & Email Service (Resend / SendGrid)
-
-    Data Compilation: Aggregates the previous 24 hours of lead data into structured Excel sheets.
-
-    Delivery: Interfaces with Resend to reliably deliver multi-part MIME emails containing the file attachments to clients.
-
-Local Development
-Prerequisites
-
-    Node.js (v18+ recommended)
-
-    Docker (for running local PostgreSQL and Redis instances)
-
-Step-by-Step Setup
-
-    Clone and Navigate to Backend Folder:
-    Bash
-
-    cd backend
-
-    Install Dependencies:
-    Bash
-
-    npm install
-
-
-
-    Spin up Infrastructure (Docker Compose):
-    Bash
-
-    docker compose up -d
-
-    (Ensure your docker-compose.yml includes services for postgres and redis).
-
-    Run Database Migrations:
-    Bash
-
-    npx prisma migrate dev --name init
-
-    Start the Development Server:
-    Bash
-
-    npm run start:dev
-
-Production Build
-
-To compile the TypeScript code into optimized, production-ready JavaScript:
+### 2\. Spin Up the Containers
 Bash
+```
+docker-compose up --build
+```
+This single command handles setting up PostgreSQL, Redis, Mailpit, running the FastAPI server on port `8000`, and spinning up the independent Celery worker instance.
 
-# 1. Build the application
-npm run build
-
-# 2. Run prisma migrations against your production database
-npx prisma migrate deploy
-
-# 3. Start the production server
-npm run start:prod
-
-Deployment Node
-
-    Ensure the environment variables point to your managed Supabase instance and production Redis cluster.
-
-    If deploying to serverless environments (like Vercel), background workers should be decoupled into standard long-running cloud instances (like AWS ECS or DigitalOcean App Platform) since BullMQ requires a persistent event loop connection to Redis.
+### 3\. Review Dashboards
+Once running, you can access the following local interfaces:
+-   **FastAPI Interactive Docs:** `http://localhost:8000/docs`
+-   **Mailpit Email Interface:** `http://localhost:8025`
 
 Development Roadmap
+-------------------
+### Phase 1 --- Environment & Shell Setup
+-   [ ] Initialize Git repository and structure folder modules.
+-   [ ] Write `docker-compose.yml` defining Postgres, Redis, Celery, and Mailpit.
+-   [ ] Build `main.py` with basic health-check endpoint and verify container orchestration.
 
-    [ ] Phase 1: Core API setup with NestJS/Express and Prisma schema definitions for Leads and Configurations.
+### Phase 2 --- Data Layers & Validation
+-   [ ] Establish database engine and baseline relational tables in `db/models.py`.
+-   [ ] Implement `schemas/chat.py` to match the exact JSON shape sent by the React frontend.
+-   [ ] Implement robust error handling for missing/malformed payloads.
 
-    [ ] Phase 2: Integration of real-time chat framework (WebSockets or Server-Sent Events) and LLM orchestration pipeline.
+### Phase 3 --- Core Endpoint Wiring
+-   [ ] Connect `routes_chat.py` to accept the widget submissions.
+-   [ ] Verify frontend-to-backend communication over local networks (handle CORS).
+-   [ ] Test real data persistence into the local Postgres instance.
 
-    [ ] Phase 3: Redis and BullMQ infrastructure setup for handling basic background event tasks.
-
-    [ ] Phase 4: Implementation of the Excel parsing/generation module and Resend email integration.
-
-    [ ] Phase 5: Cron job scheduling implementation for automated daily reports and end-to-end testing.
+### Phase 4 --- Workers & Free Notifications
+-   [ ] Hook up Celery to communicate natively with the Redis broker.
+-   [ ] Build `services/excel_gen.py` to query databases and generate Excel sheets dynamically.
+-   [ ] Build `services/email_sender.py` using standard `smtplib`.
+-   [ ] Test end-to-end email generation using local Mailpit dashboard.
