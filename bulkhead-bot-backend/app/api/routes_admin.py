@@ -1,0 +1,1 @@
+# Endpoints for companies to set hours/preferences

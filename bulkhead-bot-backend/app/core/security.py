@@ -1,0 +1,1 @@
+# API key verification for widget requests
