@@ -1,6 +1,3 @@
-# Spin-up API, Celery, Redis, Postgres, Mailpit
-version: '3.8'
-
 services:
   # 1. FastAPI Core Web Server
   api:
@@ -23,7 +20,11 @@ services:
       - .:/bulkhead-bot-backend
     env_file:
       - .env
-    command: celery -A app.tasks.celery_app.celery worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: celery -A app.tasks.celery_app:celery_app worker --loglevel=info
     depends_on:
       - db
       - redis
