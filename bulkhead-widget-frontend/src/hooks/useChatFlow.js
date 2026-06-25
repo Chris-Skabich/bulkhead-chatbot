@@ -1,4 +1,3 @@
-// Manages conversation state and transitions
 import { useState } from 'react';
 
 const useChatFlow = () => {
@@ -6,18 +5,18 @@ const useChatFlow = () => {
         { sender: 'bot', text: 'Hi! I can help you get a quote for your bulkhead project. What is your name?' }
     ]);
     const [step, setStep] = useState(1);
-    const [leadData, setLeadData] = useState({}); // We will use leadData and setLeadData when we set up the database in backend
+    const [leadData, setLeadData] = useState({});
 
     const handleUserInput = (inputText) => {
-        // Immediately show the user's message in the chat
+        // If the chat is done (step 5), ignore any new typing
+        if (step > 4) return;
+
         const newMessages = [...messages, { sender: 'user', text: inputText }];
         setMessages(newMessages);
 
-        // Determine the bot's next reply with a slight delay for realism
         setTimeout(() => {
             let botReply = '';
 
-            // This switch statement is temporary and will go through changes
             switch (step) {
                 case 1:
                     setLeadData((prev) => ({ ...prev, name: inputText }));
@@ -25,18 +24,37 @@ const useChatFlow = () => {
                     setStep(2);
                     break;
                 case 2:
-                    setLeadData((prev) => ({ ...prev, size: inputText }));
+                    // Match the exact 'linear_feet' key your Pydantic schema expects
+                    setLeadData((prev) => ({ ...prev, linear_feet: parseInt(inputText) || 0 }));
                     botReply = `Got it. What material is currently there? (e.g., Wood, Vinyl, Concrete)`;
                     setStep(3);
                     break;
                 case 3:
-                    setLeadData((prev) => ({ ...prev, material: inputText }));
+                    // Match the exact 'notes' key your Pydantic schema expects
+                    setLeadData((prev) => ({ ...prev, notes: "Current material: " + inputText }));
                     botReply = `Thanks! Lastly, please provide your phone number so our team can call you tomorrow.`;
                     setStep(4);
                     break;
                 default:
+                    const finalLeadData = { ...leadData, phone: inputText };
+                    setLeadData(finalLeadData);
                     botReply = `Thank you! We have received your information and will be in touch shortly.`;
-                // In the future: call api.submitLead(leadData) here
+                    
+                    // Advance to step 5 so the switch statement never fires 'default' again
+                    setStep(5);
+                    
+                    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+                    
+                    fetch(`${apiUrl}/leads`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(finalLeadData),
+                    })
+                    .then(response => response.json())
+                    .then(data => console.log("Lead successfully saved to DB:", data))
+                    .catch((error) => console.error("Error saving lead:", error));
             }
 
             setMessages([...newMessages, { sender: 'bot', text: botReply }]);
