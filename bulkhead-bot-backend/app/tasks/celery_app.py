@@ -2,7 +2,7 @@ import os
 from celery import Celery
 
 # Securely pull the Redis URL from the environment
-REDIS_URL = os.getenv("REDIS_URL")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 celery_app = Celery(
     "bulkhead_worker",
@@ -18,3 +18,10 @@ celery_app.conf.update(
     enable_utc=True,
     broker_connection_retry_on_startup=True,
 )
+
+# Now lets test connection
+@celery_app.task(name="test_celery_connection")
+def test_task(name: str):
+    message = f"Success! Celery is processing a background task for {name}"
+    print(message)  # This will print inside your Celery Docker terminal logs
+    return message
