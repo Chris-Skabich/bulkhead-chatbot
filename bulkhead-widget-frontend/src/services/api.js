@@ -3,7 +3,8 @@ export const submitLead = async (leadData) => {
     try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-        const response = await fetch(`${apiUrl}/api/leads`, {
+        // Changed from /api/leads to /leads to match FastAPI
+        const response = await fetch(`${apiUrl}/leads`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

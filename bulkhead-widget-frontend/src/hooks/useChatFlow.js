@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { submitLead } from '../services/api';
 
 const useChatFlow = () => {
     const [messages, setMessages] = useState([
@@ -22,42 +23,50 @@ const useChatFlow = () => {
                     setLeadData((prev) => ({ ...prev, name: inputText }));
                     botReply = `Nice to meet you! What is the estimated length of the wall in linear feet?`;
                     setStep(2);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
                 case 2:
-                    // Match the exact 'linear_feet' key your Pydantic schema expects
+                    // Match the exact 'linear_feet' key your backend Pydantic schema expects
                     setLeadData((prev) => ({ ...prev, linear_feet: parseInt(inputText) || 0 }));
                     botReply = `Got it. What material is currently there? (e.g., Wood, Vinyl, Concrete)`;
                     setStep(3);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
                 case 3:
-                    // Match the exact 'notes' key your Pydantic schema expects
+                    // Match the exact 'notes' key your backend Pydantic schema expects
                     setLeadData((prev) => ({ ...prev, notes: "Current material: " + inputText }));
                     botReply = `Thanks! Lastly, please provide your phone number so our team can call you tomorrow.`;
                     setStep(4);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
                 default:
                     const finalLeadData = { ...leadData, phone: inputText };
                     setLeadData(finalLeadData);
-                    botReply = `Thank you! We have received your information and will be in touch shortly.`;
                     
-                    // Advance to step 5 so the switch statement never fires 'default' again
+                    // Advance to step 5 to lock the chat
                     setStep(5);
                     
-                    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+                    // Show a temporary processing state
+                    setMessages([...newMessages, { sender: 'bot', text: 'Thank you! Submitting your information...' }]);
                     
-                    fetch(`${apiUrl}/leads`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(finalLeadData),
-                    })
-                    .then(response => response.json())
-                    .then(data => console.log("Lead successfully saved to DB:", data))
-                    .catch((error) => console.error("Error saving lead:", error));
+                    // Call the dedicated API service
+                    submitLead(finalLeadData).then((data) => {
+                        if (data && data.success === false) {
+                            // Catch the error returned from api.js
+                            setMessages((prev) => [...prev, { 
+                                sender: 'bot', 
+                                text: 'Oops! We had trouble saving your info. Please call us directly.' 
+                            }]);
+                        } else {
+                            // Submission Confirmation State
+                            setMessages((prev) => [...prev, { 
+                                sender: 'bot', 
+                                text: 'Success! Your quote request has been received. Our team will call you tomorrow.' 
+                            }]);
+                        }
+                    });
+                    break;
             }
-
-            setMessages([...newMessages, { sender: 'bot', text: botReply }]);
         }, 600);
     };
 
