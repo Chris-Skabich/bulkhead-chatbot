@@ -13,6 +13,8 @@ from app.tasks.celery_app import test_task
 from fastapi.responses import FileResponse
 from app.services.excel_gen import generate_leads_excel
 from app.db.session import get_db
+# Email import
+from app.tasks.celery_app import test_task, process_and_email_report
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -71,3 +73,9 @@ def test_download_excel(db: Session = Depends(get_db)):
         filename="Bulkhead_Test_Report.xlsx", 
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+@app.post("/trigger-report/{email}")
+def trigger_email_report(email: str):
+    # .delay() fires it off to Redis silently in the background
+    process_and_email_report.delay(email)
+    return {"message": f"Background job started! Check Mailpit for the email sent to {email}."}

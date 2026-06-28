@@ -131,22 +131,22 @@ Once running, you can access the following local interfaces:
 Development Roadmap
 -------------------
 ### Phase 1 --- Environment & Shell Setup
--   [ ] Initialize Git repository and structure folder modules.
--   [ ] Write `docker-compose.yml` defining Postgres, Redis, Celery, and Mailpit.
--   [ ] Build `main.py` with basic health-check endpoint and verify container orchestration.
+-   [X] Initialize Git repository and structure folder modules.
+-   [X] Write `docker-compose.yml` defining Postgres, Redis, Celery, and Mailpit.
+-   [X] Build `main.py` with basic health-check endpoint and verify container orchestration.
 
 ### Phase 2 --- Data Layers & Validation
--   [ ] Establish database engine and baseline relational tables in `db/models.py`.
--   [ ] Implement `schemas/chat.py` to match the exact JSON shape sent by the React frontend.
--   [ ] Implement robust error handling for missing/malformed payloads.
+-   [X] Establish database engine and baseline relational tables in `db/models.py`.
+-   [X] Implement `schemas/chat.py` to match the exact JSON shape sent by the React frontend.
+-   [X] Implement robust error handling for missing/malformed payloads.
 
 ### Phase 3 --- Core Endpoint Wiring
--   [ ] Connect `routes_chat.py` to accept the widget submissions.
--   [ ] Verify frontend-to-backend communication over local networks (handle CORS).
--   [ ] Test real data persistence into the local Postgres instance.
+-   [X] Connect `routes_chat.py` to accept the widget submissions.
+-   [X] Verify frontend-to-backend communication over local networks (handle CORS).
+-   [X] Test real data persistence into the local Postgres instance.
 
 ### Phase 4 --- Workers & Free Notifications
--   [ ] Hook up Celery to communicate natively with the Redis broker.
--   [ ] Build `services/excel_gen.py` to query databases and generate Excel sheets dynamically.
--   [ ] Build `services/email_sender.py` using standard `smtplib`.
--   [ ] Test end-to-end email generation using local Mailpit dashboard.
+-   [X] Hook up Celery to communicate natively with the Redis broker.
+-   [X] Build `services/excel_gen.py` to query databases and generate Excel sheets dynamically.
+-   [X] Build `services/email_sender.py` using standard `smtplib`.
+-   [X] Test end-to-end email generation using local Mailpit dashboard.
