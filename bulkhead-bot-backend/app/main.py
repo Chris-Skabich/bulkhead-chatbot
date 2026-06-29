@@ -7,6 +7,14 @@ from app.db.session import engine, Base, SessionLocal
 from app.db import models
 # Import your new schemas from client.py
 from app.schemas.client import LeadCreate, LeadResponse
+# Celetty import
+from app.tasks.celery_app import test_task
+# Fast API Excel imports
+from fastapi.responses import FileResponse
+from app.services.excel_gen import generate_leads_excel
+from app.db.session import get_db
+# Email import
+from app.tasks.celery_app import test_task, process_and_email_report
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -21,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Dependency: Opens a database session for a request, then safely closes it
+# Opens a database session for a request, then safely closes it
 def get_db():
     db = SessionLocal()
     try:
@@ -49,3 +57,25 @@ def get_all_leads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
     # Retrieve leads from the database
     leads = db.query(models.Lead).offset(skip).limit(limit).all()
     return leads
+
+@app.get("/test-celery/{name}")
+def test_celery_worker(name: str):
+    test_task.delay(name) # Passes over to Redis
+    return {"message": f"Task sent to Redis for {name}! Check your Celery Docker logs."}
+
+@app.get("/test-excel")
+def test_download_excel(db: Session = Depends(get_db)):
+    # Trigger the function we just wrote to build the Excel file
+    file_path = generate_leads_excel(db)
+    # Send that file out of Docker and into your web browser!
+    return FileResponse(
+        path=file_path, 
+        filename="Bulkhead_Test_Report.xlsx", 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.post("/trigger-report/{email}")
+def trigger_email_report(email: str):
+    # .delay() fires it off to Redis silently in the background
+    process_and_email_report.delay(email)
+    return {"message": f"Background job started! Check Mailpit for the email sent to {email}."}
