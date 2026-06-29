@@ -281,34 +281,34 @@ Once loaded, the widget automatically mounts itself into the provided container.
 
 ### Phase 1 — Core Widget
 
-- [ ] Build `main.jsx`
-- [ ] Create scoped widget styles
-- [ ] Build floating chat launcher
-- [ ] Implement expandable chat window
+- [X] Build `main.jsx`
+- [X] Create scoped widget styles
+- [X] Build floating chat launcher
+- [X] Implement expandable chat window
 
 ### Phase 2 — Messaging UI
 
-- [ ] Build `MessageList.jsx`
-- [ ] Build `MessageBubble.jsx`
-- [ ] Build `InputArea.jsx`
-- [ ] Add auto-scroll behavior
+- [X] Build `MessageList.jsx`
+- [X] Build `MessageBubble.jsx`
+- [X] Build `InputArea.jsx`
+- [X] Add auto-scroll behavior
 
 ### Phase 3 — Conversation Engine
 
-- [ ] Implement `useChatFlow.js`
-- [ ] Build question sequencing
-- [ ] Add validation logic
-- [ ] Add quick reply support
+- [X] Implement `useChatFlow.js`
+- [X] Build question sequencing
+- [X] Add validation logic
+- [X] Add quick reply support
 
 ### Phase 4 — Data Processing
 
-- [ ] Build `unitConverter.js`
-- [ ] Normalize linear-foot values
-- [ ] Validate collected lead data
+- [X] Build `unitConverter.js`
+- [X] Normalize linear-foot values
+- [X] Validate collected lead data
 
 ### Phase 5 — Backend Integration
 
-- [ ] Connect to FastAPI backend
-- [ ] Submit completed leads
-- [ ] Handle API errors
-- [ ] Add submission confirmation state
+- [X] Connect to FastAPI backend
+- [X] Submit completed leads
+- [X] Handle API errors
+- [X] Add submission confirmation state
