@@ -29,7 +29,7 @@ def generate_leads_excel(db: Session) -> str:
     left_align = Alignment(horizontal="left", vertical="center")
     
     # Write headers
-    headers = ["ID", "Name", "Phone", "Linear Feet", "Notes", "Date Created"]
+    headers = ["ID", "Name", "Phone", "Project Type", "Linear Feet", "Timeline", "Notes", "Date Created"]
     ws.append(headers)
     
     # Format header row
@@ -47,7 +47,9 @@ def generate_leads_excel(db: Session) -> str:
             lead.id,
             lead.name,
             lead.phone,
+            getattr(lead, 'project_type', 'N/A'),  # Pulls project_type from your new schema
             lead.linear_feet if lead.linear_feet is not None else "N/A",
+            getattr(lead, 'timeline', 'N/A'),      # Pulls timeline from your new schema
             lead.notes if lead.notes else "",
             formatted_date
         ]
