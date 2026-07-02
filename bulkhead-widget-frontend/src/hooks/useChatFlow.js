@@ -9,8 +9,8 @@ const useChatFlow = () => {
     const [leadData, setLeadData] = useState({});
 
     const handleUserInput = (inputText) => {
-        // If the chat is done (step 5), ignore any new typing
-        if (step > 4) return;
+        // If the chat is done (step 6), ignore any new typing
+        if (step > 6) return;
 
         const newMessages = [...messages, { sender: 'user', text: inputText }];
         setMessages(newMessages);
@@ -28,23 +28,33 @@ const useChatFlow = () => {
                 case 2:
                     // Match the exact 'linear_feet' key your backend Pydantic schema expects
                     setLeadData((prev) => ({ ...prev, linear_feet: parseInt(inputText) || 0 }));
-                    botReply = `Got it. What material is currently there? (e.g., Wood, Vinyl, Concrete)`;
+                    botReply = `Great! What type of project is this? (e.g., Bulkhead, Dock, Repair)`;
                     setStep(3);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
                 case 3:
-                    // Match the exact 'notes' key your backend Pydantic schema expects
+                    setLeadData((prev) => ({ ...prev, project_type: inputText }));
+                    botReply = `Perfect. When do you need this project completed? (e.g., ASAP, Within 30 days, Next year)`;
+                    setStep(4);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
+                    break;
+                case 4:
+                    setLeadData((prev) => ({ ...prev, timeline: inputText }));
+                    botReply = `Got it. What material is currently there? (e.g., Wood, Vinyl, Concrete)`;
+                    setStep(5);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
+                    break;
+                case 5:
                     setLeadData((prev) => ({ ...prev, notes: "Current material: " + inputText }));
                     botReply = `Thanks! Lastly, please provide your phone number so our team can call you tomorrow.`;
-                    setStep(4);
+                    setStep(6);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
                 default:
                     const finalLeadData = { ...leadData, phone: inputText };
                     setLeadData(finalLeadData);
                     
-                    // Advance to step 5 to lock the chat
-                    setStep(5);
+                    setStep(7);
                     
                     // Show a temporary processing state
                     setMessages([...newMessages, { sender: 'bot', text: 'Thank you! Submitting your information...' }]);
