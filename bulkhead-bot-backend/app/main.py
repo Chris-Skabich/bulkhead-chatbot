@@ -1,4 +1,6 @@
 # FastAPI app initialization & CORS setup
+from http.client import HTTPException
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -6,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import engine, Base, SessionLocal
 from app.db import models
 # Import your new schemas from client.py
-from app.schemas.client import LeadCreate, LeadResponse
+from app.schemas.client import CompanyCreate, CompanyResponse, LeadCreate, LeadResponse
 # Celetty import
 from app.tasks.celery_app import test_task
 # Fast API Excel imports
@@ -79,3 +81,40 @@ def trigger_email_report(email: str):
     # .delay() fires it off to Redis silently in the background
     process_and_email_report.delay(email)
     return {"message": f"Background job started! Check Mailpit for the email sent to {email}."}
+
+#Compoany endpoints
+@app.post("/companies", response_model=CompanyResponse)
+def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
+    # Convert Pydantic schema to SQLAlchemy model
+    db_company = models.Company(**company.model_dump())
+    # Save to database
+    db.add(db_company)
+    db.commit()
+    db.refresh(db_company)  # Fetches the new ID and created_at timestamp
+    return db_company
+
+@app.get("/companies", response_model=list[CompanyResponse])
+def get_all_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    # Retrieve companies from the database
+    companies = db.query(models.Company).offset(skip).limit(limit).all()
+    return companies
+
+@app.get("/companies/{company_id}", response_model=CompanyResponse)
+def get_company(company_id: int, db: Session = Depends(get_db)):
+    # Retrieve a specific company by ID
+    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+@app.delete("/companies/{company_id}", response_model=CompanyResponse)
+def delete_company(company_id: int, db: Session = Depends(get_db)):
+    # Retrieve the company to delete
+    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Delete the company
+    db.delete(company)
+    db.commit()
+    return company

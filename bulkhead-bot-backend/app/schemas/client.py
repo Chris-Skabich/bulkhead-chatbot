@@ -20,3 +20,23 @@ class LeadResponse(LeadBase):
     created_at: datetime
     class Config:
         from_attributes = True  # Tells Pydantic to read data from SQLAlchemy models
+
+# Base Properties shared across schemas
+class CompanyBase(BaseModel):
+    name: str
+    email: Optional[str] = None
+    api_key: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+#Schema for Post requests
+class CompanyCreate(CompanyBase):
+    pass
+
+#schema for API responses (returning a company)
+class CompanyResponse(CompanyBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True  # Tells Pydantic to read data from SQLAlchemy models

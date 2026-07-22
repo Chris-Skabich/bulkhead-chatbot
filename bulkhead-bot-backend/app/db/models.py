@@ -10,7 +10,7 @@ class Lead(Base):
     id = Column(Integer, primary_key=True, index=True)
     # Necessary info
     name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
+    phone = Column("Phone", Text, nullable=True)
     # Optional porject specifics
     project_type = Column(String, nullable=True) # Can be Bulkhead, Dock, Boat Lift
     linear_feet = Column(Integer, nullable=True)
@@ -19,3 +19,14 @@ class Lead(Base):
     notes = Column(Text, nullable=True)
     # Automatically stamps the exact date and time the lead was saved
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Company(Base):
+    __tablename__ = "companies"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    # Mapping exact column names from your database screenshot
+    email = Column("Email", Text, nullable=True)
+    api_key = Column(Text, nullable=True)
+    phone = Column("Phone", Integer, nullable=True) 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    address = Column(Text, nullable=True)
