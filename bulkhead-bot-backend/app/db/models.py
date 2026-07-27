@@ -10,7 +10,7 @@ class Lead(Base):
     id = Column(Integer, primary_key=True, index=True)
     # Necessary info
     name = Column(String, nullable=False)
-    phone = Column("Phone", Text, nullable=True)
+    phone = Column(Text, nullable=True) # Removed "Phone"
     # Optional porject specifics
     project_type = Column(String, nullable=True) # Can be Bulkhead, Dock, Boat Lift
     linear_feet = Column(Integer, nullable=True)
@@ -25,8 +25,8 @@ class Company(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     # Mapping exact column names from your database screenshot
-    email = Column("Email", Text, nullable=True)
+    email = Column(Text, nullable=True) # Removed "Email"
     api_key = Column(Text, nullable=True)
-    phone = Column("Phone", Integer, nullable=True) 
+    phone = Column(Text, nullable=True) # Removed "Phone" and changed to Text
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     address = Column(Text, nullable=True)
