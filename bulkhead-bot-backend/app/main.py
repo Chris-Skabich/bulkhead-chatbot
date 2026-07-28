@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import engine, Base, SessionLocal
 from app.db import models
 # Import your new schemas from client.py
-from app.schemas.client import CompanyCreate, CompanyResponse, LeadCreate, LeadResponse
+from app.schemas.client import CompanyCreate, CompanyResponse, LeadCreate, LeadResponse, ClientSettingsCreate, ClientSettingsResponse
 # Celetty import
 from app.tasks.celery_app import test_task
 # Fast API Excel imports
@@ -118,3 +118,25 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     db.delete(company)
     db.commit()
     return company
+
+
+@app.post("/client-settings", response_model=ClientSettingsResponse)
+def create_client_settings(settings: ClientSettingsCreate, db: Session = Depends(get_db)):
+    db_settings = models.ClientSettings(**settings.model_dump())
+    db.add(db_settings)
+    db.commit()
+    db.refresh(db_settings)
+    return db_settings
+
+
+@app.get("/client-settings", response_model=list[ClientSettingsResponse])
+def get_all_client_settings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return db.query(models.ClientSettings).offset(skip).limit(limit).all()
+
+
+@app.get("/client-settings/company/{company_id}", response_model=ClientSettingsResponse)
+def get_settings_by_company_id(company_id: int, db: Session = Depends(get_db)):
+    settings = db.query(models.ClientSettings).filter(models.ClientSettings.company_id == company_id).first()
+    if not settings:
+        raise HTTPException(status_code=404, detail=f"No settings found for company ID {company_id}")
+    return settings

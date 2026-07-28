@@ -1,5 +1,5 @@
 # DB schemas (Client settings, Leads)
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, BigInteger, ForeignKey, JSON, Float, Boolean
 from sqlalchemy.sql import func
 from app.db.session import Base
 
@@ -30,3 +30,16 @@ class Company(Base):
     phone = Column(Text, nullable=True) # Removed "Phone" and changed to Text
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     address = Column(Text, nullable=True)
+
+class client_settings(Base):
+    __tablename__ = "client_settings"
+
+    id = Column(BigInteger, primary_key=True, index=True)  # int8 in Supabase
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    api_key = Column(Text, nullable=True)
+    company_name = Column(Text, nullable=True)
+    report_email = Column(Text, nullable=True)
+    business_hours = Column(JSON, nullable=True)  # jsonb column
+    urgency_threshold = Column(Float, nullable=True)  # float4 column
+    is_active = Column(Boolean, default=True)  # bool column
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)

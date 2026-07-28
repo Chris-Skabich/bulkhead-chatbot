@@ -1,6 +1,6 @@
 # Validating admin settings
 from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Optional, Dict
 from datetime import datetime
 
 # Base properties shared across all lead interactions (same as in db/models.py)
@@ -40,3 +40,34 @@ class CompanyResponse(CompanyBase):
 
     class Config:
         from_attributes = True  # Tells Pydantic to read data from SQLAlchemy models
+
+
+class ClientSettingsBase(BaseModel):
+    company_name: Optional[str] = None
+    api_key: Optional[str] = None
+    report_email: Optional[str] = None
+    business_hours: Optional[Dict[str, Any]] = None  # Handles JSON payload
+    urgency_threshold: Optional[float] = None
+    is_active: Optional[bool] = True
+    company_id: Optional[int] = None
+
+# Schema for POST requests (creating new settings)
+class ClientSettingsCreate(ClientSettingsBase):
+    pass
+
+# Schema for PATCH/PUT requests (updating settings)
+class ClientSettingsUpdate(BaseModel):
+    company_name: Optional[str] = None
+    api_key: Optional[str] = None
+    report_email: Optional[str] = None
+    business_hours: Optional[Dict[str, Any]] = None
+    urgency_threshold: Optional[float] = None
+    is_active: Optional[bool] = None
+
+# Schema for API responses
+class ClientSettingsResponse(ClientSettingsBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
