@@ -56,6 +56,14 @@ def test_hardcoded_weeks_to_months():
     assert nlp_parser.normalize_timeline_to_months_hardcoded("2 to 3 weeks") == 0.6
 
 
+def test_hardcoded_spelled_out_single_value():
+    assert nlp_parser.normalize_timeline_to_months_hardcoded("two weeks") == 0.5
+
+
+def test_hardcoded_spelled_out_range():
+    assert nlp_parser.normalize_timeline_to_months_hardcoded("two to five weeks") == 0.9
+
+
 def test_hardcoded_asap():
     assert nlp_parser.normalize_timeline_to_months_hardcoded("ASAP") == 0.0
 

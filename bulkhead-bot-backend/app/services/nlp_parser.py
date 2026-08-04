@@ -34,6 +34,37 @@ def _convert_timeline_unit_to_months(value: float, unit: str) -> float:
    return round(value, 1)
 
 
+NUMBER_WORDS = {
+   "a": 1.0,
+   "an": 1.0,
+   "zero": 0.0,
+   "one": 1.0,
+   "two": 2.0,
+   "three": 3.0,
+   "four": 4.0,
+   "five": 5.0,
+   "six": 6.0,
+   "seven": 7.0,
+   "eight": 8.0,
+   "nine": 9.0,
+   "ten": 10.0,
+   "eleven": 11.0,
+   "twelve": 12.0,
+}
+
+
+def _convert_timeline_value_to_float(value: str) -> float | None:
+   if value is None:
+       return None
+
+   cleaned_value = value.strip().lower()
+   if re.fullmatch(r"\d+(?:\.\d+)?", cleaned_value):
+       return float(cleaned_value)
+
+   if cleaned_value in NUMBER_WORDS:
+       return NUMBER_WORDS[cleaned_value]
+
+   return None
 
 
 def normalize_timeline_to_months_hardcoded(raw_timeline: str) -> float | None:
@@ -52,6 +83,7 @@ def normalize_timeline_to_months_hardcoded(raw_timeline: str) -> float | None:
 
 
    urgent_keywords = [
+       "soon",
        "asap",
        "urgent",
        "emergency",
@@ -65,34 +97,38 @@ def normalize_timeline_to_months_hardcoded(raw_timeline: str) -> float | None:
 
 
    range_match = re.search(
-       r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)\s*(weeks?|months?|years?|days?)",
+       r"(?P<start>[a-z0-9.]+)\s*(?:-|to)\s*(?P<end>[a-z0-9.]+)\s*(?P<unit>weeks?|months?|years?|days?)",
        text,
    )
    if range_match:
-       start = float(range_match.group(1))
-       end = float(range_match.group(2))
-       unit = range_match.group(3)
-       value = (start + end) / 2.0
-       return _convert_timeline_unit_to_months(value, unit)
+       start = _convert_timeline_value_to_float(range_match.group("start"))
+       end = _convert_timeline_value_to_float(range_match.group("end"))
+       unit = range_match.group("unit")
+       if start is not None and end is not None:
+           value = (start + end) / 2.0
+           return _convert_timeline_unit_to_months(value, unit)
 
 
    single_match = re.search(
-       r"(\d+(?:\.\d+)?)\s*(weeks?|months?|years?|days?)",
+       r"(?P<value>[a-z0-9.]+)\s*(?P<unit>weeks?|months?|years?|days?)",
        text,
    )
    if single_match:
-       value = float(single_match.group(1))
-       unit = single_match.group(2)
-       return _convert_timeline_unit_to_months(value, unit)
+       value = _convert_timeline_value_to_float(single_match.group("value"))
+       unit = single_match.group("unit")
+       if value is not None:
+           return _convert_timeline_unit_to_months(value, unit)
 
 
    phrase_map = {
        "this week": 0.25,
+       "in a week": 0.25,
        "next week": 0.25,
        "couple of weeks": 0.5,
        "a few weeks": 0.75,
        "few weeks": 0.75,
        "this month": 1.0,
+       "within a month": 1.0,
        "next month": 1.0,
        "a couple months": 2.0,
        "a few months": 3.0,
