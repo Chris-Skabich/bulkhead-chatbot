@@ -15,6 +15,7 @@ class Lead(Base):
     project_type = Column(String, nullable=True) # Can be Bulkhead, Dock, Boat Lift
     linear_feet = Column(Integer, nullable=True)
     timeline = Column(String, nullable=True)
+    timeline_parsed = Column(Float, nullable=True) # New lead column to measure urgency
     # A text box for notes that is once again optional
     notes = Column(Text, nullable=True)
     # Automatically stamps the exact date and time the lead was saved

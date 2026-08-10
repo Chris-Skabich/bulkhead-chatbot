@@ -18,6 +18,7 @@ class LeadCreate(LeadBase):
 class LeadResponse(LeadBase):
     id: int
     created_at: datetime
+    timeline_parsed: Optional[float] = None # Parsed timeline logic
     class Config:
         from_attributes = True  # Tells Pydantic to read data from SQLAlchemy models
 

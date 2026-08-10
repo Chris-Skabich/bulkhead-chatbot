@@ -17,6 +17,8 @@ from app.services.excel_gen import generate_leads_excel
 from app.db.session import get_db
 # Email import
 from app.tasks.celery_app import test_task, process_and_email_report
+# NLP Parser import
+from app.services.nlp_parser import normalize_timeline_to_months
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -46,8 +48,16 @@ def health_check():
 
 @app.post("/leads", response_model=LeadResponse)
 def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
-    # Convert Pydantic schema to SQLAlchemy model
-    db_lead = models.Lead(**lead.model_dump())
+    # Convert the incoming Pydantic schema into a Python dictionary
+    lead_data = lead.model_dump()
+    # If the user provided a timeline, run it through the NLP parser
+    if lead.timeline:
+        # This will query Gemini (or the hardcoded list) and return a float
+        parsed_months = normalize_timeline_to_months(lead.timeline)
+        # Inject the new float into our data dictionary
+        lead_data["timeline_parsed"] = parsed_months
+    # Pass the updated dictionary (which now includes timeline_parsed) to the database model
+    db_lead = models.Lead(**lead_data)
     # Save to database
     db.add(db_lead)
     db.commit()
