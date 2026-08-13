@@ -64,10 +64,17 @@ def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
     db.refresh(db_lead) # Fetches the new ID and created_at timestamp
     return db_lead
 
-@app.get("/leads", response_model=list[LeadResponse])
-def get_all_leads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    # Retrieve leads from the database
-    leads = db.query(models.Lead).offset(skip).limit(limit).all()
+# @app.get("/leads", response_model=list[LeadResponse])
+# def get_all_leads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+#     # Retrieve leads from the database
+#     leads = db.query(models.Lead).offset(skip).limit(limit).all()
+#     return leads
+
+@app.get("/leads/company/{company_id}", response_model=list[LeadResponse])
+def get_company_leads(company_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    leads = db.query(models.Lead).filter(models.Lead.company_id == company_id).offset(skip).limit(limit).all()
+    if not leads:
+        return [] # Return empty list if company has no leads
     return leads
 
 @app.get("/test-celery/{name}")

@@ -11,6 +11,7 @@ class LeadBase(BaseModel):
     linear_feet: Optional[int] = None
     timeline: Optional[str] = None
     notes: Optional[str] = None
+    company_id: int
 # Schema for creating a lead (what the user sends via API)
 class LeadCreate(LeadBase):
     pass

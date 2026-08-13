@@ -20,6 +20,7 @@ class Lead(Base):
     notes = Column(Text, nullable=True)
     # Automatically stamps the exact date and time the lead was saved
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
 
 class Company(Base):
     __tablename__ = "companies"
