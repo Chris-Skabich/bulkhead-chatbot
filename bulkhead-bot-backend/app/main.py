@@ -83,13 +83,13 @@ def test_celery_worker(name: str):
     return {"message": f"Task sent to Redis for {name}! Check your Celery Docker logs."}
 
 @app.get("/test-excel")
-def test_download_excel(db: Session = Depends(get_db)):
+def test_download_excel(company_id: int, db: Session = Depends(get_db)):
     # Trigger the function we just wrote to build the Excel file
-    file_path = generate_leads_excel(db)
+    file_path = generate_leads_excel(db, company_id=company_id)
     # Send that file out of Docker and into your web browser!
     return FileResponse(
         path=file_path, 
-        filename="Bulkhead_Test_Report.xlsx", 
+        filename=f"company_{company_id}_leads.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 

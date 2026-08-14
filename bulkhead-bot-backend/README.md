@@ -152,10 +152,10 @@ Development Roadmap
 -   [X] Test end-to-end email generation using local Mailpit dashboard.
 
 ### Phase 5 — Admin Settings & Urgency Engine (Current Phase)
--   [ ] **Database Migration:** Migtate to MongoDB and expand PostgreSQL schema with a `ClientSettings` table to store email targets, business hours, and custom urgency thresholds.
--   [ ] **Create Admin Endpoints:** Build endpoints in `routes_admin.py` to allow business owners to configure and fetch their preferences.
--   [ ] **AI Timeline Normalizer:** Build an LLM utility in `services/nlp_parser.py` that translates messy human timeline entries (e.g., "75 days", "2 weeks") into standardized decimals (e.g., `2.5` months, `0.5` months) rounded to the nearest tenth.
--   [ ] **Urgency Ranking Logic:** Update the daily Excel report generator to cross-reference the normalized timeline against the client's custom urgency limit, sorting and highlighting priority jobs first.
+-   [X] **Database Migration:** Migtate to Supabase and expand PostgreSQL schema with a `ClientSettings` table to store email targets, business hours, and custom urgency thresholds.
+-   [X] **Create Admin Endpoints:** Build endpoints in `routes_admin.py` to allow business owners to configure and fetch their preferences.
+-   [X] **AI Timeline Normalizer:** Build an LLM utility in `services/nlp_parser.py` that translates messy human timeline entries (e.g., "75 days", "2 weeks") into standardized decimals (e.g., `2.5` months, `0.5` months) rounded to the nearest tenth.
+-   [X] **Urgency Ranking Logic:** Update the daily Excel report generator to cross-reference the normalized timeline against the client's custom urgency limit, sorting and highlighting priority jobs first.
 
 ### Phase 6 — Security, Anti-Abuse & Monetization (Pre-Launch)
 -   [ ] **Rate Limiting:** Implement a Redis-based token bucket rate limiter on the public `/leads` endpoint to block automated spam.

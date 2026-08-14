@@ -6,15 +6,19 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import Session
 from app.db import models
 
-def generate_leads_excel(db: Session, client_urgency_threshold: float = 1.0) -> str:
+# Added company_id to the function parameters
+def generate_leads_excel(db: Session, company_id: int, client_urgency_threshold: float = 1.0) -> str:
     """
-    Queries the database for all leads, sorts them by urgency, and highlights 
-    critical leads that fall under the client's custom urgency threshold.
+    Queries the database for a specific company's leads, sorts them by urgency, 
+    and highlights critical leads that fall under the client's custom urgency threshold.
     """
+    # Added the filter to isolate data to only this company
     # Sort by timeline_months first (shortest/most urgent at the top)
     # Tie-breaker: largest linear feet job first
-    leads = db.query(models.Lead).order_by(
-        models.Lead.timeline_months.asc(), 
+    leads = db.query(models.Lead).filter(
+        models.Lead.company_id == company_id
+    ).order_by(
+        models.Lead.timeline_parsed.asc(), 
         models.Lead.linear_feet.desc()
     ).all()
     
@@ -31,7 +35,7 @@ def generate_leads_excel(db: Session, client_urgency_threshold: float = 1.0) -> 
     # Define an Urgent Fill Color (Light Red) for critical rows
     urgent_fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
     
-    # Added 'Timeline (Raw)' and 'Timeline (AI Months)' 
+    # Headers 
     headers = ["ID", "Name", "Phone", "Project Type", "Linear Feet", "Timeline (Raw)", "Timeline (AI Months)", "Notes", "Date Created"]
     ws.append(headers)
     
@@ -46,7 +50,7 @@ def generate_leads_excel(db: Session, client_urgency_threshold: float = 1.0) -> 
         formatted_date = lead.created_at.strftime("%Y-%m-%d %H:%M") if lead.created_at else "N/A"
         
         # Protect against None values before doing math
-        months = getattr(lead, 'timeline_months', 99.0)
+        months = getattr(lead, 'timeline_parsed', 99.0)
         months = months if months is not None else 99.0
         
         row = [
@@ -55,7 +59,7 @@ def generate_leads_excel(db: Session, client_urgency_threshold: float = 1.0) -> 
             lead.phone,
             getattr(lead, 'project_type', 'N/A'),
             lead.linear_feet if lead.linear_feet is not None else "N/A",
-            getattr(lead, 'timeline_raw', 'N/A'), # What the user actually typed
+            getattr(lead, 'timeline', 'N/A'), # What the user actually typed
             months,                               # The AI converted number
             lead.notes if lead.notes else "",
             formatted_date
@@ -77,7 +81,8 @@ def generate_leads_excel(db: Session, client_urgency_threshold: float = 1.0) -> 
     output_dir = "/tmp/reports"
     os.makedirs(output_dir, exist_ok=True)
     
-    filename = f"leads_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    # Added company_id to the filename
+    filename = f"leads_report_co_{company_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     file_path = os.path.join(output_dir, filename)
     
     wb.save(file_path)
