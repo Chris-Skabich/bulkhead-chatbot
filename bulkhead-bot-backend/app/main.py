@@ -1,25 +1,27 @@
 # FastAPI app initialization & CORS setup
-from http.client import HTTPException
-
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-# Import your database components and models
-from app.db.session import engine, Base, SessionLocal
-from app.db import models
-# Import your new schemas from client.py
-from app.schemas.client import CompanyCreate, CompanyResponse, LeadCreate, LeadResponse, ClientSettingsCreate, ClientSettingsResponse
-# Celetty import
-from app.tasks.celery_app import test_task
-# Fast API Excel imports
 from fastapi.responses import FileResponse
-from app.services.excel_gen import generate_leads_excel
-from app.db.session import get_db
-# Email import
-from app.tasks.celery_app import test_task, process_and_email_report
-# NLP Parser import
-from app.services.nlp_parser import normalize_timeline_to_months
+from sqlalchemy.orm import Session
 
+# Database components and models
+from app.db.session import engine, SessionLocal
+from app.db import models
+
+# Schemas
+from app.schemas.client import (
+    CompanyCreate, CompanyResponse, 
+    LeadCreate, LeadResponse, 
+    ClientSettingsCreate, ClientSettingsResponse
+)
+
+# Services & Tasks
+from app.services.excel_gen import generate_leads_excel
+from app.services.nlp_parser import normalize_timeline_to_months
+from app.tasks.celery_app import test_task, process_and_email_report
+
+
+# Initialize database tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bulkhead Bot Backend", version="1.0.0")
@@ -50,43 +52,36 @@ def health_check():
 def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
     # Convert the incoming Pydantic schema into a Python dictionary
     lead_data = lead.model_dump()
+    
     # If the user provided a timeline, run it through the NLP parser
     if lead.timeline:
-        # This will query Gemini (or the hardcoded list) and return a float
         parsed_months = normalize_timeline_to_months(lead.timeline)
-        # Inject the new float into our data dictionary
         lead_data["timeline_parsed"] = parsed_months
-    # Pass the updated dictionary (which now includes timeline_parsed) to the database model
+        
+    # Pass the updated dictionary to the database model
     db_lead = models.Lead(**lead_data)
+    
     # Save to database
     db.add(db_lead)
     db.commit()
-    db.refresh(db_lead) # Fetches the new ID and created_at timestamp
+    db.refresh(db_lead)
     return db_lead
-
-# @app.get("/leads", response_model=list[LeadResponse])
-# def get_all_leads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-#     # Retrieve leads from the database
-#     leads = db.query(models.Lead).offset(skip).limit(limit).all()
-#     return leads
 
 @app.get("/leads/company/{company_id}", response_model=list[LeadResponse])
 def get_company_leads(company_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     leads = db.query(models.Lead).filter(models.Lead.company_id == company_id).offset(skip).limit(limit).all()
     if not leads:
-        return [] # Return empty list if company has no leads
+        return [] 
     return leads
 
 @app.get("/test-celery/{name}")
 def test_celery_worker(name: str):
-    test_task.delay(name) # Passes over to Redis
+    test_task.delay(name) 
     return {"message": f"Task sent to Redis for {name}! Check your Celery Docker logs."}
 
 @app.get("/test-excel")
 def test_download_excel(company_id: int, db: Session = Depends(get_db)):
-    # Trigger the function we just wrote to build the Excel file
     file_path = generate_leads_excel(db, company_id=company_id)
-    # Send that file out of Docker and into your web browser!
     return FileResponse(
         path=file_path, 
         filename=f"company_{company_id}_leads.xlsx",
@@ -95,30 +90,25 @@ def test_download_excel(company_id: int, db: Session = Depends(get_db)):
 
 @app.post("/trigger-report/{email}")
 def trigger_email_report(email: str):
-    # .delay() fires it off to Redis silently in the background
     process_and_email_report.delay(email)
     return {"message": f"Background job started! Check Mailpit for the email sent to {email}."}
 
-#Compoany endpoints
+# Company endpoints
 @app.post("/companies", response_model=CompanyResponse)
 def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
-    # Convert Pydantic schema to SQLAlchemy model
     db_company = models.Company(**company.model_dump())
-    # Save to database
     db.add(db_company)
     db.commit()
-    db.refresh(db_company)  # Fetches the new ID and created_at timestamp
+    db.refresh(db_company)  
     return db_company
 
 @app.get("/companies", response_model=list[CompanyResponse])
 def get_all_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    # Retrieve companies from the database
     companies = db.query(models.Company).offset(skip).limit(limit).all()
     return companies
 
 @app.get("/companies/{company_id}", response_model=CompanyResponse)
 def get_company(company_id: int, db: Session = Depends(get_db)):
-    # Retrieve a specific company by ID
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
@@ -126,17 +116,15 @@ def get_company(company_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/companies/{company_id}", response_model=CompanyResponse)
 def delete_company(company_id: int, db: Session = Depends(get_db)):
-    # Retrieve the company to delete
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    # Delete the company
     db.delete(company)
     db.commit()
     return company
 
-
+# Client Settings endpoints
 @app.post("/client-settings", response_model=ClientSettingsResponse)
 def create_client_settings(settings: ClientSettingsCreate, db: Session = Depends(get_db)):
     db_settings = models.ClientSettings(**settings.model_dump())
@@ -145,11 +133,9 @@ def create_client_settings(settings: ClientSettingsCreate, db: Session = Depends
     db.refresh(db_settings)
     return db_settings
 
-
 @app.get("/client-settings", response_model=list[ClientSettingsResponse])
 def get_all_client_settings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(models.ClientSettings).offset(skip).limit(limit).all()
-
 
 @app.get("/client-settings/company/{company_id}", response_model=ClientSettingsResponse)
 def get_settings_by_company_id(company_id: int, db: Session = Depends(get_db)):
