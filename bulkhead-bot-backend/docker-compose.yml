@@ -10,7 +10,6 @@ services:
       - .env
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
-      - db
       - redis
     
   # 2. Background worker Celery
@@ -26,33 +25,17 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     command: celery -A app.tasks.celery_app:celery_app worker --loglevel=info
     depends_on:
-      - db
       - redis
 
-  # 3. Empty Sandbox Database
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: bulkhead_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    
-  # 4. Message Queue Broker (Redis)
+  # 3. Message Queue Broker (Redis)
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     
-  # 5. Mock email server Dashboard (Mailpit)
+  # 4. Mock email server Dashboard (Mailpit)
   mailpit:
     image: axllent/mailpit
     ports:
       - "8025:8025" # web UI Dashboard
       - "1025:1025" # SMTP Port
-
-volumes:
-  postgres_data:
