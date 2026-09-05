@@ -25,32 +25,22 @@ const useChatFlow = () => {
                     setStep(2);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
+                
                 case 2:
-                    // Match the exact 'linear_feet' key your backend Pydantic schema expects
                     setLeadData((prev) => ({ ...prev, linear_feet: parseInt(inputText) || 0 }));
                     botReply = `Great! What type of project is this? (e.g., Bulkhead, Dock, Repair)`;
                     setStep(3);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
+                
                 case 3:
-                    setLeadData((prev) => ({ ...prev, project_type: inputText }));
-                    botReply = `Perfect. When do you need this project completed? (e.g., ASAP, Within 30 days, Next year)`;
-                    setStep(4);
-                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
-                    break;
-                case 4:
-                    setLeadData((prev) => ({ ...prev, timeline: inputText }));
-                    botReply = `Got it. What material is currently there? (e.g., Wood, Vinyl, Concrete)`;
-                    setStep(5);
-                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
-                    break;
-                case 5:
                     setLeadData((prev) => ({ ...prev, notes: "Current material: " + inputText }));
                     botReply = `Thanks! Lastly, please provide your phone number so our team can call you tomorrow.`;
                     setStep(6);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
-                default:
+                
+                case 4:
                     const finalLeadData = { ...leadData, phone: inputText };
                     setLeadData(finalLeadData);
                     
@@ -61,20 +51,23 @@ const useChatFlow = () => {
                     
                     // Call the dedicated API service
                     submitLead(finalLeadData).then((data) => {
-                        if (data && data.success === false) {
-                            // Catch the error returned from api.js
-                            setMessages((prev) => [...prev, { 
-                                sender: 'bot', 
-                                text: 'Oops! We had trouble saving your info. Please call us directly.' 
-                            }]);
+                        if (!data || data.success === false) {
+                            // Remove the loading message and show error
+                            setMessages((prev) => [
+                                ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
+                                { sender: 'bot', text: 'Oops! We had trouble saving your info. Please call us directly.' }
+                            ]);
                         } else {
-                            // Submission Confirmation State
-                            setMessages((prev) => [...prev, { 
-                                sender: 'bot', 
-                                text: 'Success! Your quote request has been received. Our team will call you tomorrow.' 
-                            }]);
+                            // Remove the loading message and show success
+                            setMessages((prev) => [
+                                ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
+                                { sender: 'bot', text: 'Success! Your quote request has been received. Our team will call you tomorrow.' }
+                            ]);
                         }
                     });
+                    break;
+                
+                default:
                     break;
             }
         }, 600);
