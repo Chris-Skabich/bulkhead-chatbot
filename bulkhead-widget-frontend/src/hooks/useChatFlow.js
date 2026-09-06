@@ -9,7 +9,7 @@ const useChatFlow = () => {
     const [leadData, setLeadData] = useState({});
 
     const handleUserInput = (inputText) => {
-        // If the chat is done (step 6), ignore any new typing
+        // Stop accepting input if the chat is finished (after step 6)
         if (step > 6) return;
 
         const newMessages = [...messages, { sender: 'user', text: inputText }];
@@ -25,40 +25,54 @@ const useChatFlow = () => {
                     setStep(2);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
-                
+
                 case 2:
                     setLeadData((prev) => ({ ...prev, linear_feet: parseInt(inputText) || 0 }));
                     botReply = `Great! What type of project is this? (e.g., Bulkhead, Dock, Repair)`;
                     setStep(3);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
-                
+
                 case 3:
-                    setLeadData((prev) => ({ ...prev, notes: "Current material: " + inputText }));
+                    setLeadData((prev) => ({ ...prev, project_type: inputText }));
+                    botReply = `Got it. What kind of material are you considering? (e.g., Vinyl, Wood, Steel)`;
+                    setStep(4);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
+                    break;
+
+                case 4:
+                    // Prefixing with "Material: " to make it clear in your database's notes column
+                    setLeadData((prev) => ({ ...prev, notes: "Material: " + inputText }));
+                    botReply = `When are you hoping to complete this project?`;
+                    setStep(5);
+                    setMessages([...newMessages, { sender: 'bot', text: botReply }]);
+                    break;
+
+                case 5:
+                    setLeadData((prev) => ({ ...prev, timeline: inputText }));
                     botReply = `Thanks! Lastly, please provide your phone number so our team can call you tomorrow.`;
                     setStep(6);
                     setMessages([...newMessages, { sender: 'bot', text: botReply }]);
                     break;
-                
-                case 4:
+
+                case 6:
                     const finalLeadData = { ...leadData, phone: inputText };
                     setLeadData(finalLeadData);
-                    
+
+                    // Mark chat as complete
                     setStep(7);
-                    
+
                     // Show a temporary processing state
                     setMessages([...newMessages, { sender: 'bot', text: 'Thank you! Submitting your information...' }]);
-                    
+
                     // Call the dedicated API service
                     submitLead(finalLeadData).then((data) => {
                         if (!data || data.success === false) {
-                            // Remove the loading message and show error
                             setMessages((prev) => [
                                 ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
                                 { sender: 'bot', text: 'Oops! We had trouble saving your info. Please call us directly.' }
                             ]);
                         } else {
-                            // Remove the loading message and show success
                             setMessages((prev) => [
                                 ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
                                 { sender: 'bot', text: 'Success! Your quote request has been received. Our team will call you tomorrow.' }
@@ -66,7 +80,7 @@ const useChatFlow = () => {
                         }
                     });
                     break;
-                
+
                 default:
                     break;
             }
