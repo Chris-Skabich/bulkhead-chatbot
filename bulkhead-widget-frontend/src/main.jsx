@@ -1,16 +1,17 @@
 // Entry point: Mounts React to a specific DOM ID
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import ChatWindow from './components/ChatWindow';
+import Dashboard from './Dashboard'; // Import the Dashboard
+// import ChatWindow from './components/ChatWindow'; // Temporarily commented out
 import './index.css';
 
-// Find the host element on the client's website
+// Find the host element on the client's website (or your local index.html)
 const rootElement = document.getElementById('bulkhead-bot-root');
 
 if (rootElement) {
     ReactDOM.createRoot(rootElement).render(
         <React.StrictMode>
-            <ChatWindow />
+            <Dashboard />
         </React.StrictMode>
     );
 } else {

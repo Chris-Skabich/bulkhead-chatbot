@@ -11,3 +11,4 @@ openpyxl==3.1.2
 python-multipart==0.0.9
 supabase>=2.00
 google-genai
+google-auth

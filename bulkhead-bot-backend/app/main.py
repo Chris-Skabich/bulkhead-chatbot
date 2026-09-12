@@ -12,7 +12,8 @@ from app.db import models
 from app.schemas.client import (
     CompanyCreate, CompanyResponse, 
     LeadCreate, LeadResponse, 
-    ClientSettingsCreate, ClientSettingsResponse
+    ClientSettingsCreate, ClientSettingsResponse,
+    ClientSettingsUpdate
 )
 
 # Services & Tasks
@@ -20,6 +21,23 @@ from app.services.excel_gen import generate_leads_excel
 from app.services.nlp_parser import normalize_timeline_to_months
 from app.tasks.celery_app import test_task, process_and_email_report
 
+# Google OAuth
+from pydantic import BaseModel
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+import os
+
+# Sign Up
+import uuid
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+class TokenAuth(BaseModel):
+    token: str
+
+class SignupAuth(BaseModel):
+    token: str
+    company_name: str
 
 # Initialize database tables
 models.Base.metadata.create_all(bind=engine)
@@ -143,3 +161,96 @@ def get_settings_by_company_id(company_id: int, db: Session = Depends(get_db)):
     if not settings:
         raise HTTPException(status_code=404, detail=f"No settings found for company ID {company_id}")
     return settings
+
+@app.put("/client-settings/company/{company_id}", response_model=ClientSettingsResponse)
+def update_client_settings(company_id: int, settings_update: ClientSettingsUpdate, db: Session = Depends(get_db)):
+    # Find the existing settings
+    settings = db.query(models.ClientSettings).filter(models.ClientSettings.company_id == company_id).first()
+    
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found for this company")
+    
+    # Update only the fields that were sent
+    update_data = settings_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(settings, key, value)
+        
+    db.commit()
+    db.refresh(settings)
+    return settings
+
+@app.post("/auth/google")
+def google_auth(data: TokenAuth, db: Session = Depends(get_db)):
+    try:
+        # Verify the token with Google's servers
+        idinfo = id_token.verify_oauth2_token(
+            data.token, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+        
+        user_email = idinfo['email']
+
+        # Find the company that owns this email
+        company = db.query(models.Company).filter(models.Company.email == user_email).first()
+        
+        if not company:
+            raise HTTPException(status_code=404, detail="No company found for this email address.")
+        
+        # Return the specific company ID back to React
+        return {
+            "company_id": company.id, 
+            "company_name": company.name, 
+            "email": user_email
+        }
+        
+    except ValueError:
+        # Invalid token
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    
+@app.post("/auth/signup")
+def google_signup(data: SignupAuth, db: Session = Depends(get_db)):
+    try:
+        # Verify the token with Google
+        idinfo = id_token.verify_oauth2_token(
+            data.token, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+        user_email = idinfo['email']
+
+        # Check if the user already exists
+        existing_company = db.query(models.Company).filter(models.Company.email == user_email).first()
+        if existing_company:
+            raise HTTPException(status_code=400, detail="An account with this email already exists. Please log in.")
+
+        # Create the new Company
+        new_company = models.Company(
+            name=data.company_name,
+            email=user_email,
+            api_key=f"sk_{uuid.uuid4().hex}"  # Generate a unique API key for their widget
+        )
+        db.add(new_company)
+        db.commit()
+        db.refresh(new_company)
+
+        # Create their default Bot Settings
+        default_settings = models.ClientSettings(
+            company_id=new_company.id,
+            company_name=data.company_name,
+            report_email=user_email,  # Default to sending leads to their Google email
+            urgency_threshold=3,
+            is_active=True
+        )
+        db.add(default_settings)
+        db.commit()
+
+        # Return the new company info to log them in
+        return {
+            "company_id": new_company.id, 
+            "company_name": new_company.name, 
+            "email": user_email
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
