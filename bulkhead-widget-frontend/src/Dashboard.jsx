@@ -7,12 +7,8 @@ const Dashboard = () => {
 
     const [activeTab, setActiveTab] = useState('leads');
     const [leads, setLeads] = useState([]);
-    const [settings, setSettings] = useState({
-        company_name: '',
-        report_email: '',
-        urgency_threshold: 0,
-        is_active: true
-    });
+    // State now uses 'name' to match the merged database model
+    const [settings, setSettings] = useState({ name: '', report_email: '', urgency_threshold: 0, is_active: true, phone: '', address: '' });
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
 
@@ -21,7 +17,6 @@ const Dashboard = () => {
     const [isSignUp, setIsSignUp] = useState(false);
     const [newCompanyName, setNewCompanyName] = useState('');
 
-    // The function that runs when Google successfully logs the user in
     const handleGoogleSuccess = async (credentialResponse) => {
         try {
             const response = await fetch("http://localhost:8000/auth/google", {
@@ -36,7 +31,7 @@ const Dashboard = () => {
                 setCompanyId(data.company_id);
                 setCompanyName(data.company_name);
             } else {
-                alert(data.detail); // Shows "No company found for this email" if it fails
+                alert(data.detail);
             }
         } catch (error) {
             console.error("Auth error:", error);
@@ -75,19 +70,18 @@ const Dashboard = () => {
     const handleLogout = () => {
         setCompanyId(null);
         setCompanyName('');
-        setLeads([]); // Clear the data from the screen
+        setLeads([]);
     };
 
-    // Fetch data whenever the tab OR the companyId changes
     useEffect(() => {
-        if (!companyId) return; // Don't fetch if not logged in
+        if (!companyId) return;
 
         if (activeTab === 'leads') {
             fetchLeads();
         } else {
             fetchSettings();
         }
-    }, [activeTab, companyId]); // <-- Added companyId to dependency array
+    }, [activeTab, companyId]);
 
     const fetchLeads = async () => {
         setLoading(true);
@@ -104,7 +98,8 @@ const Dashboard = () => {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:8000/client-settings/company/${companyId}`);
+            // URL updated to the consolidated companies endpoint
+            const response = await fetch(`http://localhost:8000/companies/${companyId}`);
             if (response.ok) {
                 const data = await response.json();
                 setSettings(data);
@@ -116,11 +111,11 @@ const Dashboard = () => {
     };
 
     const handleSettingsSave = async (e) => {
-        // ... (Keep your existing handleSettingsSave function, just change COMPANY_ID to companyId)
         e.preventDefault();
         setMessage('Saving...');
         try {
-            const response = await fetch(`http://localhost:8000/client-settings/company/${companyId}`, {
+            // URL updated to the consolidated companies endpoint
+            const response = await fetch(`http://localhost:8000/companies/${companyId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings)
@@ -262,8 +257,8 @@ const Dashboard = () => {
                             <label style={labelStyle}>Company Name</label>
                             <input
                                 type="text"
-                                value={settings.company_name || ''}
-                                onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
+                                value={settings.name || ''}
+                                onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                                 style={inputStyle}
                             />
                         </div>
@@ -274,6 +269,26 @@ const Dashboard = () => {
                                 type="email"
                                 value={settings.report_email || ''}
                                 onChange={(e) => setSettings({ ...settings, report_email: e.target.value })}
+                                style={inputStyle}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={labelStyle}>Phone Number</label>
+                            <input
+                                type="text"
+                                value={settings.phone || ''}
+                                onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                                style={inputStyle}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={labelStyle}>Company Address</label>
+                            <input
+                                type="text"
+                                value={settings.address || ''}
+                                onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                                 style={inputStyle}
                             />
                         </div>
@@ -312,7 +327,6 @@ const Dashboard = () => {
     );
 };
 
-// Simple styles for the table and form to keep it looking clean without needing external CSS files
 const thStyle = { padding: '12px', borderBottom: '2px solid #ddd' };
 const tdStyle = { padding: '12px' };
 const labelStyle = { display: 'block', fontWeight: 'bold', marginBottom: '5px' };

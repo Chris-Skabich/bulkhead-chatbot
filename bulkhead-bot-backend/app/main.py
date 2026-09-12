@@ -11,9 +11,7 @@ from app.db import models
 # Schemas
 from app.schemas.client import (
     CompanyCreate, CompanyResponse, 
-    LeadCreate, LeadResponse, 
-    ClientSettingsCreate, ClientSettingsResponse,
-    ClientSettingsUpdate
+    LeadCreate, LeadResponse
 )
 
 # Services & Tasks
@@ -30,6 +28,9 @@ import os
 # Sign Up
 import uuid
 
+# Optional update for company settings
+from typing import Optional
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 class TokenAuth(BaseModel):
@@ -38,6 +39,14 @@ class TokenAuth(BaseModel):
 class SignupAuth(BaseModel):
     token: str
     company_name: str
+    
+class CompanySettingsUpdate(BaseModel):
+    name: str
+    report_email: str
+    urgency_threshold: float
+    is_active: bool
+    phone: Optional[str] = None     
+    address: Optional[str] = None  
 
 # Initialize database tables
 models.Base.metadata.create_all(bind=engine)
@@ -47,13 +56,12 @@ app = FastAPI(title="Bulkhead Bot Backend", version="1.0.0")
 # Handle CORS for frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development; restrict in production
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
-# Opens a database session for a request, then safely closes it
 def get_db():
     db = SessionLocal()
     try:
@@ -61,36 +69,11 @@ def get_db():
     finally:
         db.close()
 
-# Endpoint health check
+# --- Health & Testing Endpoints ---
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "database_connected": "Phase 2 Active!"}
-
-@app.post("/leads", response_model=LeadResponse)
-def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
-    # Convert the incoming Pydantic schema into a Python dictionary
-    lead_data = lead.model_dump()
-    
-    # If the user provided a timeline, run it through the NLP parser
-    if lead.timeline:
-        parsed_months = normalize_timeline_to_months(lead.timeline)
-        lead_data["timeline_parsed"] = parsed_months
-        
-    # Pass the updated dictionary to the database model
-    db_lead = models.Lead(**lead_data)
-    
-    # Save to database
-    db.add(db_lead)
-    db.commit()
-    db.refresh(db_lead)
-    return db_lead
-
-@app.get("/leads/company/{company_id}", response_model=list[LeadResponse])
-def get_company_leads(company_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    leads = db.query(models.Lead).filter(models.Lead.company_id == company_id).offset(skip).limit(limit).all()
-    if not leads:
-        return [] 
-    return leads
 
 @app.get("/test-celery/{name}")
 def test_celery_worker(name: str):
@@ -111,7 +94,87 @@ def trigger_email_report(email: str):
     process_and_email_report.delay(email)
     return {"message": f"Background job started! Check Mailpit for the email sent to {email}."}
 
-# Company endpoints
+
+# --- Auth Endpoints ---
+
+@app.post("/auth/google")
+def google_auth(data: TokenAuth, db: Session = Depends(get_db)):
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data.token, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+        user_email = idinfo['email']
+
+        company = db.query(models.Company).filter(models.Company.email == user_email).first()
+        if not company:
+            raise HTTPException(status_code=404, detail="No company found for this email address.")
+        
+        return {
+            "company_id": company.id, 
+            "company_name": company.name, 
+            "email": user_email
+        }
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    
+@app.post("/auth/signup")
+def google_signup(data: SignupAuth, db: Session = Depends(get_db)):
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data.token, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+        user_email = idinfo['email']
+
+        existing_company = db.query(models.Company).filter(models.Company.email == user_email).first()
+        if existing_company:
+            raise HTTPException(status_code=400, detail="An account with this email already exists. Please log in.")
+
+        new_company = models.Company(
+            name=data.company_name,
+            email=user_email,
+            api_key=f"sk_{uuid.uuid4().hex}",
+            report_email=user_email,
+            urgency_threshold=3.0,
+            is_active=True
+        )
+        db.add(new_company)
+        db.commit()
+        db.refresh(new_company)
+
+        return {
+            "company_id": new_company.id, 
+            "company_name": new_company.name, 
+            "email": user_email
+        }
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+
+# --- Leads Endpoints ---
+
+@app.post("/leads", response_model=LeadResponse)
+def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
+    lead_data = lead.model_dump()
+    if lead.timeline:
+        parsed_months = normalize_timeline_to_months(lead.timeline)
+        lead_data["timeline_parsed"] = parsed_months
+        
+    db_lead = models.Lead(**lead_data)
+    db.add(db_lead)
+    db.commit()
+    db.refresh(db_lead)
+    return db_lead
+
+@app.get("/leads/company/{company_id}", response_model=list[LeadResponse])
+def get_company_leads(company_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    leads = db.query(models.Lead).filter(models.Lead.company_id == company_id).offset(skip).limit(limit).all()
+    if not leads:
+        return [] 
+    return leads
+
+
+# --- Company & Settings Endpoints ---
+
 @app.post("/companies", response_model=CompanyResponse)
 def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
     db_company = models.Company(**company.model_dump())
@@ -120,137 +183,41 @@ def create_company(company: CompanyCreate, db: Session = Depends(get_db)):
     db.refresh(db_company)  
     return db_company
 
-@app.get("/companies", response_model=list[CompanyResponse])
+@app.get("/companies")
 def get_all_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    companies = db.query(models.Company).offset(skip).limit(limit).all()
-    return companies
+    return db.query(models.Company).offset(skip).limit(limit).all()
 
-@app.get("/companies/{company_id}", response_model=CompanyResponse)
+@app.get("/companies/{company_id}")
 def get_company(company_id: int, db: Session = Depends(get_db)):
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     return company
 
-@app.delete("/companies/{company_id}", response_model=CompanyResponse)
-def delete_company(company_id: int, db: Session = Depends(get_db)):
+@app.put("/companies/{company_id}")
+def update_company_settings(company_id: int, settings: CompanySettingsUpdate, db: Session = Depends(get_db)):
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
+    company.name = settings.name
+    company.report_email = settings.report_email
+    company.urgency_threshold = settings.urgency_threshold
+    company.is_active = settings.is_active
+    company.phone = settings.phone
+    company.address = settings.address
+    
+    db.commit()
+    return {"message": "Settings updated successfully"}
+
+@app.delete("/companies/{company_id}")
+def delete_company(company_id: int, db: Session = Depends(get_db)):
+    company = db.query(models.Company).filter(models.Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    # Delete all leads associated with this company first
+    db.query(models.Lead).filter(models.Lead.company_id == company_id).delete()
+    # Now safely delete the company
     db.delete(company)
     db.commit()
-    return company
-
-# Client Settings endpoints
-@app.post("/client-settings", response_model=ClientSettingsResponse)
-def create_client_settings(settings: ClientSettingsCreate, db: Session = Depends(get_db)):
-    db_settings = models.ClientSettings(**settings.model_dump())
-    db.add(db_settings)
-    db.commit()
-    db.refresh(db_settings)
-    return db_settings
-
-@app.get("/client-settings", response_model=list[ClientSettingsResponse])
-def get_all_client_settings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(models.ClientSettings).offset(skip).limit(limit).all()
-
-@app.get("/client-settings/company/{company_id}", response_model=ClientSettingsResponse)
-def get_settings_by_company_id(company_id: int, db: Session = Depends(get_db)):
-    settings = db.query(models.ClientSettings).filter(models.ClientSettings.company_id == company_id).first()
-    if not settings:
-        raise HTTPException(status_code=404, detail=f"No settings found for company ID {company_id}")
-    return settings
-
-@app.put("/client-settings/company/{company_id}", response_model=ClientSettingsResponse)
-def update_client_settings(company_id: int, settings_update: ClientSettingsUpdate, db: Session = Depends(get_db)):
-    # Find the existing settings
-    settings = db.query(models.ClientSettings).filter(models.ClientSettings.company_id == company_id).first()
-    
-    if not settings:
-        raise HTTPException(status_code=404, detail="Settings not found for this company")
-    
-    # Update only the fields that were sent
-    update_data = settings_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(settings, key, value)
-        
-    db.commit()
-    db.refresh(settings)
-    return settings
-
-@app.post("/auth/google")
-def google_auth(data: TokenAuth, db: Session = Depends(get_db)):
-    try:
-        # Verify the token with Google's servers
-        idinfo = id_token.verify_oauth2_token(
-            data.token, 
-            google_requests.Request(), 
-            GOOGLE_CLIENT_ID
-        )
-        
-        user_email = idinfo['email']
-
-        # Find the company that owns this email
-        company = db.query(models.Company).filter(models.Company.email == user_email).first()
-        
-        if not company:
-            raise HTTPException(status_code=404, detail="No company found for this email address.")
-        
-        # Return the specific company ID back to React
-        return {
-            "company_id": company.id, 
-            "company_name": company.name, 
-            "email": user_email
-        }
-        
-    except ValueError:
-        # Invalid token
-        raise HTTPException(status_code=401, detail="Invalid Google token")
-    
-@app.post("/auth/signup")
-def google_signup(data: SignupAuth, db: Session = Depends(get_db)):
-    try:
-        # Verify the token with Google
-        idinfo = id_token.verify_oauth2_token(
-            data.token, 
-            google_requests.Request(), 
-            GOOGLE_CLIENT_ID
-        )
-        user_email = idinfo['email']
-
-        # Check if the user already exists
-        existing_company = db.query(models.Company).filter(models.Company.email == user_email).first()
-        if existing_company:
-            raise HTTPException(status_code=400, detail="An account with this email already exists. Please log in.")
-
-        # Create the new Company
-        new_company = models.Company(
-            name=data.company_name,
-            email=user_email,
-            api_key=f"sk_{uuid.uuid4().hex}"  # Generate a unique API key for their widget
-        )
-        db.add(new_company)
-        db.commit()
-        db.refresh(new_company)
-
-        # Create their default Bot Settings
-        default_settings = models.ClientSettings(
-            company_id=new_company.id,
-            company_name=data.company_name,
-            report_email=user_email,  # Default to sending leads to their Google email
-            urgency_threshold=3,
-            is_active=True
-        )
-        db.add(default_settings)
-        db.commit()
-
-        # Return the new company info to log them in
-        return {
-            "company_id": new_company.id, 
-            "company_name": new_company.name, 
-            "email": user_email
-        }
-
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
+    return {"message": "Company and all associated leads deleted successfully"}
