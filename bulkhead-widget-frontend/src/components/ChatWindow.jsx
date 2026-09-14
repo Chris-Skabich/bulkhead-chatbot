@@ -4,16 +4,19 @@ import MessageList from './MessageList';
 import InputArea from './InputArea';
 import useChatFlow from '../hooks/useChatFlow';
 
-const ChatWindow = () => {
+const ChatWindow = ({ companyId, companyName }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const { messages, handleUserInput } = useChatFlow();
+    
+    // Pass the companyId down into your custom hook
+    const { messages, handleUserInput } = useChatFlow(companyId);
 
     return (
         <div className="bh-bot-container">
             {isOpen && (
                 <div className="bh-bot-window">
                     <div className="bh-bot-header">
-                        Marine Construction Assistant
+                        {/* Dynamically display the company name if available */}
+                        {companyName ? `${companyName} Assistant` : 'Marine Construction Assistant'}
                     </div>
                     <MessageList messages={messages} />
                     <InputArea onSendMessage={handleUserInput} />

@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const submitLead = async (leadData) => {
-    // 1. Combine the React data with your required company_id
+    // Combine the React data with your required company_id
     const fullPayload = {
         ...leadData,
         company_id: 1 // Change this to your actual company ID
@@ -15,7 +15,7 @@ export const submitLead = async (leadData) => {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(fullPayload) // Now sending ALL fields!
+            body: JSON.stringify(leadData) // Now sending ALL fields!
         });
 
         if (!response.ok) {

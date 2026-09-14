@@ -221,3 +221,16 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     db.delete(company)
     db.commit()
     return {"message": "Company and all associated leads deleted successfully"}
+
+@app.get("/widget/config")
+def get_widget_config(api_key: str, db: Session = Depends(get_db)):
+    # Look up the company by their unique API key
+    company = db.query(models.Company).filter(models.Company.api_key == api_key).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Invalid API Key")
+    # Return ONLY the safe, public-facing settings necessary for the widget to boot
+    return {
+        "company_id": company.id,
+        "company_name": company.name,
+        "is_active": company.is_active
+    }

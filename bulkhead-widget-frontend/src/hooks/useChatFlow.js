@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { submitLead } from '../services/api';
 
-const useChatFlow = () => {
+// ACCEPT THE companyId HERE
+const useChatFlow = (companyId) => {
     const [messages, setMessages] = useState([
         { sender: 'bot', text: 'Hi! I can help you get a quote for your bulkhead project. What is your name?' }
     ]);
@@ -56,7 +57,13 @@ const useChatFlow = () => {
                     break;
 
                 case 6:
-                    const finalLeadData = { ...leadData, phone: inputText };
+                    // ADD company_id TO THE FINAL LEAD DATA HERE
+                    const finalLeadData = { 
+                        ...leadData, 
+                        phone: inputText,
+                        company_id: companyId 
+                    };
+                    
                     setLeadData(finalLeadData);
 
                     // Mark chat as complete

@@ -1,19 +1,30 @@
-// Entry point: Mounts React to a specific DOM ID
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Dashboard from './Dashboard'; // Import the Dashboard
-// import ChatWindow from './components/ChatWindow'; // Temporarily commented out
+import Dashboard from './Dashboard'; 
+import BulkheadWidget from './BulkheadWidget'; // We will create this file next
 import './index.css';
 
-// Find the host element on the client's website (or your local index.html)
 const rootElement = document.getElementById('bulkhead-bot-root');
 
 if (rootElement) {
-    ReactDOM.createRoot(rootElement).render(
-        <React.StrictMode>
-            <Dashboard />
-        </React.StrictMode>
-    );
+    // Check if the HTML element has an API key attached to it
+    const apiKey = rootElement.getAttribute('data-api-key');
+
+    if (apiKey) {
+        // Client's website (Render the Chatbot Widget)
+        ReactDOM.createRoot(rootElement).render(
+            <React.StrictMode>
+                <BulkheadWidget apiKey={apiKey} />
+            </React.StrictMode>
+        );
+    } else {
+        // Your internal admin site (Render the Dashboard)
+        ReactDOM.createRoot(rootElement).render(
+            <React.StrictMode>
+                <Dashboard />
+            </React.StrictMode>
+        );
+    }
 } else {
     console.error('Bulkhead Bot Error: Target container #bulkhead-bot-root not found.');
 }

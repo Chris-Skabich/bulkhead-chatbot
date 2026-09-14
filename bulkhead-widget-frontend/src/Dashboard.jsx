@@ -7,8 +7,8 @@ const Dashboard = () => {
 
     const [activeTab, setActiveTab] = useState('leads');
     const [leads, setLeads] = useState([]);
-    // State now uses 'name' to match the merged database model
-    const [settings, setSettings] = useState({ name: '', report_email: '', urgency_threshold: 0, is_active: true, phone: '', address: '' });
+    // Added api_key to the state so we can display it
+    const [settings, setSettings] = useState({ name: '', report_email: '', urgency_threshold: 0, is_active: true, phone: '', address: '', api_key: '' });
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
 
@@ -98,7 +98,6 @@ const Dashboard = () => {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            // URL updated to the consolidated companies endpoint
             const response = await fetch(`http://localhost:8000/companies/${companyId}`);
             if (response.ok) {
                 const data = await response.json();
@@ -114,7 +113,6 @@ const Dashboard = () => {
         e.preventDefault();
         setMessage('Saving...');
         try {
-            // URL updated to the consolidated companies endpoint
             const response = await fetch(`http://localhost:8000/companies/${companyId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -251,6 +249,18 @@ const Dashboard = () => {
             {activeTab === 'settings' && !loading && (
                 <div style={{ maxWidth: '600px' }}>
                     <h2>Bot Settings</h2>
+                    
+                    {/* EMBED CODE SECTION */}
+                    {settings.api_key && (
+                        <div style={{ background: '#e9ecef', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
+                            <h4 style={{ margin: '0 0 10px 0' }}>Your Website Embed Code</h4>
+                            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#555' }}>Paste this into your website's HTML to display the bot.</p>
+                            <code style={{ display: 'block', background: '#333', color: '#fff', padding: '10px', borderRadius: '4px', fontSize: '13px', overflowX: 'auto' }}>
+                                &lt;div id="bulkhead-bot-root" data-api-key="{settings.api_key}"&gt;&lt;/div&gt;
+                            </code>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSettingsSave} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
 
                         <div>
