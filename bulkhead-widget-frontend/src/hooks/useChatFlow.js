@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { submitLead } from '../services/api';
 
-// ACCEPT THE companyId HERE
 const useChatFlow = (companyId) => {
     const [messages, setMessages] = useState([
         { sender: 'bot', text: 'Hi! I can help you get a quote for your bulkhead project. What is your name?' }
@@ -10,7 +9,7 @@ const useChatFlow = (companyId) => {
     const [leadData, setLeadData] = useState({});
 
     const handleUserInput = (inputText) => {
-        // Stop accepting input if the chat is finished (after step 6)
+        // Stop accepting input if the chat is finished
         if (step > 6) return;
 
         const newMessages = [...messages, { sender: 'user', text: inputText }];
@@ -42,7 +41,6 @@ const useChatFlow = (companyId) => {
                     break;
 
                 case 4:
-                    // Prefixing with "Material: " to make it clear in your database's notes column
                     setLeadData((prev) => ({ ...prev, notes: "Material: " + inputText }));
                     botReply = `When are you hoping to complete this project?`;
                     setStep(5);
@@ -57,7 +55,6 @@ const useChatFlow = (companyId) => {
                     break;
 
                 case 6:
-                    // ADD company_id TO THE FINAL LEAD DATA HERE
                     const finalLeadData = { 
                         ...leadData, 
                         phone: inputText,
@@ -65,23 +62,33 @@ const useChatFlow = (companyId) => {
                     };
                     
                     setLeadData(finalLeadData);
+                    setStep(7); // Temporarily lock input while submitting
 
-                    // Mark chat as complete
-                    setStep(7);
-
-                    // Show a temporary processing state
                     setMessages([...newMessages, { sender: 'bot', text: 'Thank you! Submitting your information...' }]);
 
-                    // Call the dedicated API service
                     submitLead(finalLeadData).then((data) => {
-                        if (!data || data.success === false) {
+                        // Remove the loading message
+                        setMessages((prev) => prev.filter(m => m.text !== 'Thank you! Submitting your information...'));
+
+                        if (data && data.isRateLimited) {
+                            // Rate Limit Hit
                             setMessages((prev) => [
-                                ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
+                                ...prev,
+                                { sender: 'bot', text: 'You are submitting requests too quickly. Please wait a few seconds and try again.' }
+                            ]);
+                            // Reset step to 6 so they can try sending their phone number again
+                            setStep(6); 
+                            
+                        } else if (!data || data.success === false) {
+                            // Server Error
+                            setMessages((prev) => [
+                                ...prev,
                                 { sender: 'bot', text: 'Oops! We had trouble saving your info. Please call us directly.' }
                             ]);
                         } else {
+                            // Success
                             setMessages((prev) => [
-                                ...prev.filter(m => m.text !== 'Thank you! Submitting your information...'),
+                                ...prev,
                                 { sender: 'bot', text: 'Success! Your quote request has been received. Our team will call you tomorrow.' }
                             ]);
                         }

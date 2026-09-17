@@ -31,6 +31,11 @@ import uuid
 # Optional update for company settings
 from typing import Optional
 
+# For token bucket limiting
+import time
+import redis
+from fastapi import Request, HTTPException, Depends
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 class TokenAuth(BaseModel):
@@ -68,6 +73,66 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Connect to the Redis container
+redis_client = redis.Redis(host='redis', port=6379, db=0, decode_responses=True)
+
+# Token Bucket Configuration
+MAX_TOKENS = 3         # Maximum burst of requests allowed
+REFILL_RATE = 0.2      # Tokens replenished per second (e.g., 0.01 = 1 token every 100 seconds)
+
+def token_bucket_limiter(request: Request):
+    client_ip = request.client.host or "unknown"
+    key = f"rate_limit:{client_ip}"
+    
+    try:
+        now = time.time()
+        
+        with redis_client.pipeline() as pipe:
+            while True:
+                try:
+                    pipe.watch(key)
+                    data = pipe.hgetall(key)
+                    
+                    if not data:
+                        tokens = MAX_TOKENS - 1
+                        last_update = now
+                    else:
+                        tokens = float(data.get('tokens', MAX_TOKENS))
+                        last_update = float(data.get('last_update', now))
+                        
+                        elapsed = now - last_update
+                        tokens += elapsed * REFILL_RATE
+                        if tokens > MAX_TOKENS:
+                            tokens = MAX_TOKENS
+                        
+                        if tokens >= 1:
+                            tokens -= 1
+                            last_update = now
+                        else:
+                            # THIS is our intentional 429 error
+                            raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
+                            
+                    pipe.multi()
+                    pipe.hset(key, mapping={'tokens': tokens, 'last_update': last_update})
+                    pipe.expire(key, 600)
+                    pipe.execute()
+                    break
+                except redis.WatchError:
+                    continue
+                    
+    except HTTPException:
+        # Let the 429 error pass through completely unmodified!
+        raise 
+        
+    except redis.ConnectionError:
+        # Fail open in production. If Redis crashes, don't break the bot.
+        pass
+        
+    except Exception:
+        # Catch anything else and fail open so we don't block legitimate users 
+        # over a math or parsing error.
+        pass
 
 # --- Health & Testing Endpoints ---
 
@@ -152,7 +217,7 @@ def google_signup(data: SignupAuth, db: Session = Depends(get_db)):
 
 # --- Leads Endpoints ---
 
-@app.post("/leads", response_model=LeadResponse)
+@app.post("/leads/", response_model=LeadResponse, dependencies=[Depends(token_bucket_limiter)])
 def create_lead(lead: LeadCreate, db: Session = Depends(get_db)):
     lead_data = lead.model_dump()
     if lead.timeline:
@@ -222,7 +287,7 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Company and all associated leads deleted successfully"}
 
-@app.get("/widget/config")
+@app.get("/widget/config", dependencies=[Depends(token_bucket_limiter)])
 def get_widget_config(api_key: str, db: Session = Depends(get_db)):
     # Look up the company by their unique API key
     company = db.query(models.Company).filter(models.Company.api_key == api_key).first()
